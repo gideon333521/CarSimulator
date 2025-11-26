@@ -1,215 +1,120 @@
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using TMPro.EditorUtilities;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Android;
+using UnityEngine.UI;
 
- public class CarController : MonoBehaviour
+public class CarController : MonoBehaviour
 {
-    [SerializeField] float motorPower = 1500f; 
-    [SerializeField] float brakeForce = 1500f;
-    [SerializeField] float maxSteerAngle = 30f;
+    [Header("Car Settings")]
+    [SerializeField] private float motorPower;
+    [SerializeField] private float brakeForce;
+    [SerializeField] private float steeringAngle = 60f;
+    private float brakePower;
 
-    [SerializeField] WheelCollider frontLeftWheelColider;
-    [SerializeField] WheelCollider frontRightWheelColider;
-    [SerializeField] WheelCollider rearLeftWheelColider;
-    [SerializeField] WheelCollider rearRightWheelColider;
+    [SerializeField] private WheelCollider[] wheelCollider;
+    [SerializeField] private Transform[] wheels;
+    private Rigidbody carRigidbody;
+    
 
-    [SerializeField] Transform frontLeftTransform;
-    [SerializeField] Transform frontRightTransform;
-    [SerializeField] Transform rearLeftTransform;
-    [SerializeField] Transform rearRightTransform;
+    //[SerializeField] private PedalController gasPedal;
+    //[SerializeField] private PedalController brakePedal;
 
-    [SerializeField] private float currentSpeed;
+    private float speed;
+    [SerializeField] private Text speedometr;
 
-    [SerializeField] PedalController gasPedal;
-    [SerializeField] PedalController brakePedal;
-
-    private Rigidbody rb;
-    private float verticalInput;
-    private float horizontalInput;
+    private float gasInput;
+    private float steeringInput;
     private bool isBraking;
-    private float currentSteerAngle;
 
-    private float currentGasInput = 0f;
-    private float currentBrakeInput = 0f;
-    private float steeringInput = 0f;
-
-    Vector3 forward = new Vector3(0,0,1);
-
-    public TypeDrive typeDrive;
-    public float allWheelDriveBalance = 0.5f;
+    private void Start()
+    {
+        carRigidbody = GetComponent<Rigidbody>();
+    }
 
 
-    void Start()
-     {
-        gasPedal = GetComponent<PedalController>();
-        brakePedal = GetComponent<PedalController>();
-        rb = GetComponent<Rigidbody>();
-        gasPedal.pedalInput = currentGasInput;
-        brakePedal.pedalInput = currentBrakeInput;
-     }
+    private void Update()
+    {
+        speed = carRigidbody.linearVelocity.magnitude;
+        gasInput = Input.GetAxis("Vertical");
+        steeringInput = Input.GetAxis("Horizontal");
+        isBraking = Input.GetKeyDown(KeyCode.Space);
+        if (Input.GetKey(KeyCode.W)) Debug.Log("W pressed - Acceleration");
+        if (Input.GetKey(KeyCode.S)) Debug.Log("S pressed - Brake/Reverse");
+        if (Input.GetKey(KeyCode.A)) Debug.Log("A pressed - Left");
+        if (Input.GetKey(KeyCode.D)) Debug.Log("D pressed - Right");
+        Speedometr();
+    }
 
-     void Update()
-     {
-        GetInput();
-       
-     }
 
     private void FixedUpdate()
     {
         HandleMotor();
-        HandleBrake();
         HandleSteering();
-        UpdateCurrentSpeed();
-        UpdateWheelPoses();
+        HandleBrake();
+        UpdateWheelVisuals();
     }
 
-    [Serializable]
-    public enum TypeDrive
-    { 
-        FWD,
-        RWD,
-        AWD
-    }
-
-    void GetInput()
+    private void HandleSteering()
     {
-
-        verticalInput = Input.GetAxis("Vertical");
-        horizontalInput = Input.GetAxis("Horizontal");      
-        if (gasPedal.isPressed)
+        Vector3 localVelocity = transform.InverseTransformDirection(carRigidbody.linearVelocity);
+        float speedfactor = Mathf.Clamp01(speed);
+        bool isReversing = speed != 0 && localVelocity.z < -0.1f;
+        float steer = steeringInput * steeringAngle;
+        wheelCollider[0].steerAngle = steer;
+        wheelCollider[1].steerAngle = steer;
+        if (speed != 0)
         {
-            currentGasInput = gasPedal != null ?  gasPedal.PedalScrollbar.value : 0f;
-            HandleMotor();
+           transform.Rotate(Vector3.up * steer * speedfactor * Time.deltaTime);
+        if (isReversing)
+        {
+           transform.Rotate(Vector3.down * steer * speedfactor * Time.deltaTime);
         }
 
-        if (brakePedal.isPressed)
-        {
-            currentBrakeInput = brakePedal != null ? brakePedal.PedalScrollbar.value : 0f;
-            HandleBrake();
         }
     }
 
-            void HandleSteering()
+    private void HandleMotor()
+    {
+       
+        if (isBraking == false && Mathf.Abs(gasInput) > 0.1f)
+        {
+            foreach (WheelCollider wheel in wheelCollider)
             {
-                float steerAngle = horizontalInput * currentSteerAngle * maxSteerAngle;
-                frontLeftWheelColider.steerAngle = steerAngle;
-                frontRightWheelColider.steerAngle = steerAngle;
-            }
-
-    void ApplyFrontWheel(float torque)
-    {
-        frontLeftWheelColider.motorTorque = torque;
-        frontRightWheelColider.motorTorque = torque;
-
-        rearLeftWheelColider.motorTorque = 0;
-        rearRightWheelColider.motorTorque = 0;
-    }
-
-    void ApplyRearWheel(float torque)
-    {
-        frontLeftWheelColider.motorTorque = 0;
-        frontRightWheelColider.motorTorque = 0;
-
-        rearLeftWheelColider.motorTorque = torque;
-        rearRightWheelColider.motorTorque = torque;
-    }
-
-    void ApllyAllWheel(float torque)
-    {
-        float frontTorque = torque * (1f - allWheelDriveBalance);
-        float rearTorque = torque * allWheelDriveBalance;
-
-        frontLeftWheelColider.motorTorque = frontTorque;
-        frontRightWheelColider.motorTorque = frontTorque;
-        rearLeftWheelColider.motorTorque = rearTorque;
-        rearRightWheelColider.motorTorque = rearTorque;
-    }
-    void HandleMotor()
-    {
-        float torque = currentGasInput * verticalInput * motorPower;
-        if(gasPedal.isPressed)
-        {
-            rb.MovePosition(transform.position += forward * torque);
-        }
-
-        switch (typeDrive)
-        {
-            case TypeDrive.FWD:
-                ApplyFrontWheel(torque);
-                break;
-
-            case TypeDrive.RWD:
-                ApplyRearWheel(torque);
-                break;
-
-            case TypeDrive.AWD:
-                ApllyAllWheel(torque);
-                break;
-        }
-    }
-
-    void HandleBrake()
-    {
-        float brakeTorque = isBraking ? currentBrakeInput * brakeForce : 0f;
-
-        if (brakePedal.isPressed)
-        { 
-        frontLeftWheelColider.brakeTorque = brakeTorque;
-        frontRightWheelColider.brakeTorque = brakeTorque;
-        rearLeftWheelColider.brakeTorque = brakeTorque;
-        rearRightWheelColider.brakeTorque = brakeTorque;
-        }
-
-        if (verticalInput == 0 && !isBraking && currentSpeed > 1f)
-        {
-            float engineBrakeTorque = motorPower * 0.3f;
-            switch (typeDrive)
-            {
-                case TypeDrive.FWD:
-                    frontLeftWheelColider.brakeTorque = engineBrakeTorque;
-                    frontRightWheelColider.brakeTorque = engineBrakeTorque;
-                    break;
-
-                case TypeDrive.RWD:
-                    rearLeftWheelColider.brakeTorque = engineBrakeTorque;
-                    rearRightWheelColider.brakeTorque = engineBrakeTorque;
-                    break;
-
-                    case TypeDrive.AWD:
-                    frontLeftWheelColider.brakeTorque = engineBrakeTorque * (1f - allWheelDriveBalance);
-                    frontRightWheelColider.brakeTorque = engineBrakeTorque * (1f - allWheelDriveBalance);
-                    rearLeftWheelColider.brakeTorque = engineBrakeTorque * allWheelDriveBalance;
-                    rearRightWheelColider.brakeTorque = engineBrakeTorque * allWheelDriveBalance;
-                    break;
+                wheel.motorTorque = gasInput * motorPower * Time.deltaTime;
             }
         }
     }
 
-    void UpdateWheelPoses()
+    private void HandleBrake()
     {
-        UpdateWheelPose(frontLeftWheelColider, frontLeftTransform);
-        UpdateWheelPose(frontRightWheelColider, frontRightTransform);
-        UpdateWheelPose(rearLeftWheelColider, rearLeftTransform);
-        UpdateWheelPose(rearRightWheelColider, rearRightTransform);
-
+        brakePower = isBraking ? brakeForce : 0f;
+        foreach (WheelCollider wheel in wheelCollider)
+        {
+            wheel.brakeTorque = brakePower;
+        }
     }
 
-    void UpdateWheelPose(WheelCollider collider, Transform transform)
+    private void UpdateWheelVisuals()
     {
-        Vector3 position;
-        Quaternion rotation;
-        collider.GetWorldPose(out position, out rotation);
-
-        transform.position = position;
-        transform.rotation = rotation;
+        for (int i = 0; i < wheelCollider.Length; i++)
+        {
+            UpdateWheelTransform(wheelCollider[i], wheels[i]);
+        }
     }
 
-    void UpdateCurrentSpeed()
+     private void UpdateWheelTransform(WheelCollider collider, Transform transform)
     {
-        currentSpeed = rb.linearVelocity.magnitude * 3.6f;
+       Vector3 position;
+       Quaternion rotation = Quaternion.identity;
+       collider.GetWorldPose(out position, out rotation);
+       transform.position = position;
+       transform.rotation = rotation;
+    }
+
+    private void Speedometr()
+    {
+        float currentSpeed = Mathf.Round(speed * 3.6f);
+        speedometr.text = currentSpeed.ToString();
     }
 }
