@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "257559256800",
+    "project_id": "carsimulatordb",
+    "storage_bucket": "carsimulatordb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:257559256800:android:f02e567e2b623a5a2f7a85",
+        "android_client_info": {
+          "package_name": "com.Hattori.CarSimulator"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD012Xd801jwthXJEOQgBKS7QmeWeo6Bq8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
