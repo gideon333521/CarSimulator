@@ -10,30 +10,27 @@ public class PedalController : MonoBehaviour
 
     [Header("Scrollbar Config")]
     [SerializeField] private Slider pedal;
-    [SerializeField] private float sensitivity = 1.5f;
     public float pedalInput;
     public bool isPressed;
 
     private void Start()
     {
-        pedal.value = 0f;
+        pedalInput = 0f;
         pedal.direction = Slider.Direction.BottomToTop;
         SetUpPedal();
     }
 
     void Update()
     {
-        if (isPressed == true)
+        if (isPressed)
         {
-            pedalInput = pedal.value + sensitivity * Time.deltaTime;
-
+            pedalInput = pedal.value;
         }
-        else 
+        else
         {
-            pedalInput = pedal.value - sensitivity * Time.deltaTime;
+            pedalInput = 0;
         }
-
-        pedalInput = Mathf.Clamp01(pedalInput); 
+        pedalInput = Mathf.Clamp(pedalInput, pedal.minValue, pedal.maxValue); 
     }
 
 
@@ -58,6 +55,7 @@ public class PedalController : MonoBehaviour
     void onClickDown()
     {
         isPressed = true;
+        pedalInput = pedal.value;
     }
 
 
@@ -65,6 +63,5 @@ public class PedalController : MonoBehaviour
     {
         isPressed = false;
         pedal.value = 0f;
-        pedalInput = 0f;
     }
 }

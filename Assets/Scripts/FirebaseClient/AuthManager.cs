@@ -1,381 +1,267 @@
 using UnityEngine;
 using Firebase;
 using Firebase.Auth;
-using Firebase.Database;
-using Firebase.Extensions;
 using System;
 using System.Threading.Tasks;
+using TMPro;
+using System.Collections;
+using UnityEngine.UI;
 public class AuthManager : MonoBehaviour
 {
-    //События для UI
-    public event Action<UsersData> OnLoginSuccess;
-    public event Action<string> OnLoginFailed;
-    public event Action<UsersData> OnRegisterSuccess;
-    public event Action<string> OnRegisterFailed;
-    public event Action OnLogout;
-
-    // Статический доступ
-    public static AuthManager Instance { get; private set; }
-
-    // Текущий пользователь
-    public UsersData CurrentUser { get; private set; }
-    public FirebaseUser FirebaseUser { get; private set; }
-
-    // Ссылки Firebase
+    public DependencyStatus dependencyStatus;
+    public FirebaseUser user;
     private FirebaseAuth auth;
-    private DatabaseReference database;
 
-    // Флаги инициализации
-    private bool isInitialized = false;
-    private bool isInitializing = false;
+    public TMP_InputField loginEmail;
+    public TMP_InputField loginPassword;
 
-    void Awake()
+    public TMP_InputField registerEmail;
+    public TMP_InputField registerPassword;
+    public TMP_InputField registerSurname;
+    public TMP_InputField registerName;
+    public TMP_InputField registerPatronymic;
+
+    public TextMeshProUGUI IDText;
+    public TextMeshProUGUI SurnameText;
+    public TextMeshProUGUI NameText;
+    public TextMeshProUGUI PatronymicText;
+    public TextMeshProUGUI ErrorRegText;
+    public TextMeshProUGUI ErrorSignText;
+
+    private void Awake()
     {
-        if (Instance == null)
+        FirebaseApp.CheckAndFixDependenciesAsync().ContinueWith(task =>
         {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-            return;
-        }
+            dependencyStatus = task.Result;
 
-        InitializeFirebase();
-    }
-
-    // Инициализация Firebase
-    private void InitializeFirebase()
-    {
-        if (isInitializing || isInitialized) return;
-
-        isInitializing = true;
-        Debug.Log("Начинаем инициализацию Firebase...");
-        FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
-        {
-            try
+            if (dependencyStatus == DependencyStatus.Available)
             {
-                var dependencyStatus = task.Result;
-
-                if (dependencyStatus == DependencyStatus.Available)
-                {
-                    auth = FirebaseAuth.DefaultInstance;
-                    database = FirebaseDatabase.DefaultInstance.RootReference;
-                    isInitialized = true;
-
-                    Debug.Log("Firebase Auth initialized");
-
-                    // Проверяем, есть ли сохраненная сессия
-                    CheckAutoLogin();
-                }
-                else
-                {
-                    Debug.LogError($"Could not resolve Firebase dependencies: {dependencyStatus}");
-                    OnLoginFailed?.Invoke($"Ошибка инициализации Firebase: {dependencyStatus}");
-                }
-
+                InitializeFirebase();
             }
-            catch (Exception ex)
+            else
             {
-                Debug.LogError($"Исключение при инициализации Firebase: {ex.Message}");
-                OnLoginFailed?.Invoke($"Ошибка инициализации: {ex.Message}");
-            }
-            finally
-            {
-                isInitializing = false;
+                Debug.LogError("Could not resolve all firebase dependencies: " + dependencyStatus);
             }
         });
     }
 
-    // Проверка автоматического входа
-    private void CheckAutoLogin()
+    void InitializeFirebase()
     {
-        if (auth.CurrentUser != null)
-        {
-            FirebaseUser = auth.CurrentUser;
-            LoadUserData(FirebaseUser.UserId);
-        }
+        //Set the default instance object
+        auth = FirebaseAuth.DefaultInstance;
+
+        auth.StateChanged += AuthStateChanged;
+        AuthStateChanged(this, null);
     }
 
-    public void Register(string email, string password, string surname, string name, string patronymic)
+     void AuthStateChanged(object sender, System.EventArgs eventArgs)
     {
-        if (!isInitialized)
+        if (auth.CurrentUser != user)
         {
-            OnRegisterFailed?.Invoke("Firebase не инициализирован");
-        }
+            bool signedIn = user != auth.CurrentUser && auth.CurrentUser != null;
 
-        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(surname) || string.IsNullOrEmpty(name) || string.IsNullOrEmpty(patronymic))
-        {
-            OnRegisterFailed?.Invoke("Заполните все поля");
-            return;
-        }
-
-        if (password.Length < 6)
-        {
-            OnRegisterFailed?.Invoke("Пароль должен содержать минимум 6 символов");
-            return;
-        }
-
-        auth.CreateUserWithEmailAndPasswordAsync(email, password)
-         .ContinueWithOnMainThread(task =>
-         {
-             if (task.IsCanceled)
-             {
-                 OnRegisterFailed?.Invoke("Регистрация отменена");
-                 return;
-             }
-
-             if (task.IsFaulted)
-             {
-                 HandleRegistrationError(task.Exception);
-                 return;
-             }
-
-             // Регистрация успешна
-             AuthResult result = task.Result;
-             FirebaseUser = result.User;
-
-             // Создаем данные пользователя
-             CreateUserData(FirebaseUser.UserId, email, surname, name, patronymic);
-         });
-    }
-
-    // Создание данных пользователя в базе данных
-    private void CreateUserData(string id, string email, string surname, string name, string patronymic)
-    {
-        UsersData userData = new UsersData(id, email, surname, name, patronymic);
-
-        // Сохраняем в Realtime Database
-        database.Child("users").Child(id).SetRawJsonValueAsync(userData.ToJson())
-            .ContinueWithOnMainThread(task =>
+            if (!signedIn && user != null)
             {
-                if (task.IsFaulted)
-                {
-                    Debug.LogError($"Ошибка сохранения данных: {task.Exception}");
-                    OnRegisterFailed?.Invoke("Ошибка сохранения данных пользователя");
-
-                    // Удаляем созданного пользователя, если не удалось сохранить данные
-                    DeleteUser();
-                    return;
-                }
-
-                CurrentUser = userData;
-                OnRegisterSuccess?.Invoke(userData);
-                Debug.Log($"Пользователь зарегистрирован: {email}");
-            });
-    }
-
-    // Удаление пользователя при ошибке сохранения данных
-    private async void DeleteUser()
-    {
-        if (FirebaseUser != null)
-        {
-            try
-            {
-                await FirebaseUser.DeleteAsync();
+                Debug.Log("Signed out " + user.UserId);
+                UIManager.Instance.SignOutPanel();
             }
-            catch (Exception ex)
+
+            user = auth.CurrentUser;
+
+            if (signedIn)
             {
-                Debug.LogError($"Ошибка удаления пользователя: {ex.Message}");
+                Debug.Log("Signed in " + user.UserId);
+                UIManager.Instance.OpenProfilePanel();
             }
         }
     }
 
-    // ========== АВТОРИЗАЦИЯ ==========
-
-    // Вход с email и паролем
-    public void LoginWithEmail(string email, string password)
+    public void Login()
     {
-        if (!isInitialized)
+        StartCoroutine(LoginAsync(loginEmail.text, loginPassword.text));
+    }
+
+    private IEnumerator LoginAsync(string email, string password)
+    {
+        var loginTask = auth.SignInWithEmailAndPasswordAsync(email, password);
+
+        yield return new WaitUntil(() => loginTask.IsCompleted);
+
+        if (loginTask.Exception != null)
         {
-            OnLoginFailed?.Invoke("Firebase не инициализирован");
-            return;
+            Debug.LogError(loginTask.Exception);
+
+            FirebaseException firebaseException = loginTask.Exception.GetBaseException() as FirebaseException;
+            AuthError authError = (AuthError)firebaseException.ErrorCode;
+
+
+            string failedMessage = "Вход провален! ";
+
+            switch (authError)
+            {
+                case AuthError.InvalidEmail:
+                    failedMessage += "Неверный email";
+                    break;
+                case AuthError.WrongPassword:
+                    failedMessage += "Неверный пароль";
+                    break;
+                default: 
+                    failedMessage = "Вход провален";
+                    break;
+            }
+
+            Debug.Log(failedMessage);
+            ErrorSignText.text = failedMessage;
+            ErrorSignText.color = Color.red;
         }
+        else
+        {
+            user = loginTask.Result.User;
 
-        auth.SignInWithEmailAndPasswordAsync(email, password)
-            .ContinueWithOnMainThread(task =>
-            {
-                if (task.IsCanceled)
-                {
-                    OnLoginFailed?.Invoke("Вход отменен");
-                    return;
-                }
-
-                if (task.IsFaulted)
-                {
-                    HandleLoginError(task.Exception);
-                    return;
-                }
-
-                // Вход успешен
-                AuthResult result = task.Result;
-                FirebaseUser = result.User;
-
-                // Загружаем данные пользователя
-                LoadUserData(FirebaseUser.UserId);
-            });
+            Debug.LogFormat("{0} Вы успешно авторизовались", user.DisplayName);
+            ErrorSignText.text = "Вы успешно авторизовались, здравствуйте" + user.DisplayName;
+            ErrorSignText.color = Color.green;
+            UIManager.Instance.OpenProfilePanel();
+            IDText.text = user.UserId;
+        }
     }
 
-    // Загрузка данных пользователя из базы
-    private void LoadUserData(string userId)
+    public void SignOut()
     {
-        database.Child("users").Child(userId).GetValueAsync()
-            .ContinueWithOnMainThread(task =>
-            {
-                if (task.IsFaulted)
-                {
-                    Debug.LogError($"Ошибка загрузки данных: {task.Exception}");
-                    OnLoginFailed?.Invoke("Ошибка загрузки данных пользователя");
-                    return;
-                }
-
-                DataSnapshot snapshot = task.Result;
-
-                if (!snapshot.Exists)
-                {
-                    // Данные пользователя не найдены
-                    OnLoginFailed?.Invoke("Данные пользователя не найдены");
-                    return;
-                }
-
-                // Десериализуем данные
-                string json = snapshot.GetRawJsonValue();
-                CurrentUser = UsersData.FromJson(json);
-
-                // Обновляем дату последнего входа
-                UpdateLastLogin();
-
-                OnLoginSuccess?.Invoke(CurrentUser);
-                Debug.Log($"Пользователь вошел: {CurrentUser.Email}");
-            });
-    }
-
-    // Обновление даты последнего входа
-    private void UpdateLastLogin()
-    {
-        if (CurrentUser == null) return;
-
-        CurrentUser.lastLoginDate = DateTime.Now;
-        database.Child("users").Child(CurrentUser.id)
-            .Child("lastLoginDate").SetValueAsync(CurrentUser.lastLoginDate.ToString());
-    }
-    public void Logout()
-    {
-        if (auth != null)
+        if (auth != null && user != null)
         {
             auth.SignOut();
-            CurrentUser = null;
-            FirebaseUser = null;
-            OnLogout?.Invoke();
-            Debug.Log("Пользователь вышел");
+            UIManager.Instance.SignOutPanel();
         }
     }
 
-    // ========== ОБРАБОТКА ОШИБОК ==========
-
-    private void HandleRegistrationError(Exception exception)
+    public void Register()
     {
-        string errorMessage = "Ошибка регистрации";
+        StartCoroutine(RegisterAsync(registerName.text, registerSurname.text, registerPatronymic.text, registerEmail.text, registerPassword.text));
+    }
 
-        if (exception is AggregateException aggregateException)
+    private IEnumerator RegisterAsync(string name, string surname, string patronymic, string email, string password)
+    {
+        References.Name = name;
+        References.Surname = surname;
+        References.Patronymic = patronymic;
+        if (name == "")
         {
-            foreach (var innerException in aggregateException.Flatten().InnerExceptions)
+            Debug.LogError("Заполните имя");
+        }
+
+        if (surname == "")
+        {
+            Debug.LogError("Заполните фамилию");
+        }
+
+        if (patronymic == "")
+        {
+            Debug.LogError("Заполните отчество");
+        }
+
+        if (email == "")
+        {
+            Debug.LogError("Заполните почту");
+        }
+
+        if (password == "")
+        {
+            Debug.LogError("Заполните пароль");
+        }
+        else
+        {
+            var registerTask = auth.CreateUserWithEmailAndPasswordAsync(email, password);
+
+            yield return new WaitUntil(() => registerTask.IsCompleted);
+
+            if (registerTask.Exception != null)
             {
-                if (innerException is FirebaseException firebaseException)
+                Debug.LogError(registerTask.Exception);
+
+                FirebaseException firebaseException = registerTask.Exception.GetBaseException() as FirebaseException;
+                AuthError authError = (AuthError)firebaseException.ErrorCode;
+
+                string failedMessage = "Registration Failed! Becuase ";
+                switch (authError)
                 {
-                    AuthError errorCode = (AuthError)firebaseException.ErrorCode;
-                    errorMessage = GetErrorMessage(errorCode);
-                    break;
+                    case AuthError.InvalidEmail:
+                        failedMessage += "Email is invalid";
+                        break;
+                    case AuthError.WrongPassword:
+                        failedMessage += "Wrong Password";
+                        break;
+                    case AuthError.MissingEmail:
+                        failedMessage += "Email is missing";
+                        break;
+                    case AuthError.MissingPassword:
+                        failedMessage += "Password is missing";
+                        break;
+                    default:
+                        failedMessage = "Registration Failed";
+                        break;
+                }
+
+                Debug.Log(failedMessage);
+                ErrorRegText.text = failedMessage +  authError;
+                ErrorRegText.color = Color.red;
+            }  
+            else
+            {
+                // Get The User After Registration Success
+                user = registerTask.Result.User;
+              
+                UserProfile userProfile = new UserProfile { DisplayName = name };
+
+                var updateProfileTask = user.UpdateUserProfileAsync(userProfile);
+
+
+
+                yield return new WaitUntil(() => updateProfileTask.IsCompleted);
+
+                if (updateProfileTask.Exception != null)
+                {
+                    // Delete the user if user update failed
+                    user.DeleteAsync();
+
+                    Debug.LogError(updateProfileTask.Exception);
+
+                    FirebaseException firebaseException = updateProfileTask.Exception.GetBaseException() as FirebaseException;
+                    AuthError authError = (AuthError)firebaseException.ErrorCode;
+
+                    string failedMessage = "Profile update Failed! Becuase ";
+                    switch (authError)
+                    {
+                        case AuthError.InvalidEmail:
+                            failedMessage += "Email is invalid";
+                            break;
+                        case AuthError.WrongPassword:
+                            failedMessage += "Wrong Password";
+                            break;
+                        case AuthError.MissingEmail:
+                            failedMessage += "Email is missing";
+                            break;
+                        case AuthError.MissingPassword:
+                            failedMessage += "Password is missing";
+                            break;
+                        default:
+                            failedMessage = "Profile update Failed";
+                            break;
+                    }
+
+                    Debug.Log(failedMessage);
+                    ErrorRegText.text = failedMessage +  authError;
+                }
+                else
+                {
+                    Debug.Log("Регистрация прошла успешна, Добро пожаловать " + user.DisplayName);
+                    ErrorRegText.text = "Регистрация прошла успешна, Добро пожаловать " + user.DisplayName;
+                    ErrorRegText.color = Color.green;
+                    UIManager.Instance.OpenProfilePanel();
                 }
             }
         }
-
-        OnRegisterFailed?.Invoke(errorMessage);
     }
 
-    private void HandleLoginError(Exception exception)
-    {
-        string errorMessage = "Ошибка входа";
 
-        if (exception is AggregateException aggregateException)
-        {
-            foreach (var innerException in aggregateException.Flatten().InnerExceptions)
-            {
-                if (innerException is FirebaseException firebaseException)
-                {
-                    AuthError errorCode = (AuthError)firebaseException.ErrorCode;
-                    errorMessage = GetErrorMessage(errorCode);
-                    break;
-                }
-            }
-        }
-
-        OnLoginFailed?.Invoke(errorMessage);
-    }
-
-    private string GetErrorMessage(AuthError errorCode)
-    {
-        switch (errorCode)
-        {
-            case AuthError.InvalidEmail:
-                return "Неверный формат email";
-            case AuthError.EmailAlreadyInUse:
-                return "Email уже используется";
-            case AuthError.WeakPassword:
-                return "Слабый пароль. Используйте минимум 6 символов";
-            case AuthError.WrongPassword:
-                return "Неверный пароль";
-            case AuthError.UserNotFound:
-                return "Пользователь не найден";
-            case AuthError.TooManyRequests:
-                return "Слишком много попыток. Попробуйте позже";
-            case AuthError.NetworkRequestFailed:
-                return "Ошибка сети. Проверьте подключение";
-            case AuthError.MissingEmail:
-                return "Введите email";
-            case AuthError.MissingPassword:
-                return "Введите пароль";
-            default:
-                return $"Ошибка: {errorCode}";
-        }
-    }
-
-    // ========== ПРОВЕРКИ ==========
-
-    public bool IsLoggedIn()
-    {
-        return CurrentUser != null && FirebaseUser != null;
-    }
-
-    public string GetUserDisplayName()
-    {
-        if (CurrentUser == null) return "Гость";
-
-        if (!string.IsNullOrEmpty(CurrentUser.Patronymic))
-        {
-            return $"{CurrentUser.Surname} {CurrentUser.Name} {CurrentUser.Patronymic}";
-        }
-
-        return $"{CurrentUser.Surname} {CurrentUser.Name}";
-    }
-
-    // ========== ОБНОВЛЕНИЕ ДАННЫХ ==========
-
-    public void UpdateUserProfile(string surname, string name, string patronymic)
-    {
-        if (CurrentUser == null) return;
-
-        CurrentUser.Surname = surname;
-        CurrentUser.Name = name;
-        CurrentUser.Patronymic = patronymic;
-
-        // Обновляем в базе данных
-        database.Child("users").Child(CurrentUser.id)
-            .Child("surname").SetValueAsync(surname);
-        database.Child("users").Child(CurrentUser.id)
-            .Child("name").SetValueAsync(name);
-        database.Child("users").Child(CurrentUser.id)
-            .Child("patronymic").SetValueAsync(patronymic);
-    }
 }

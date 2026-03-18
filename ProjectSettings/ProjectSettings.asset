@@ -12,7 +12,7 @@ PlayerSettings:
   targetDevice: 2
   useOnDemandResources: 0
   accelerometerFrequency: 60
-  companyName: Hattori
+  companyName: HattoriHanzo
   productName: CarSimulator
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
@@ -168,7 +168,7 @@ PlayerSettings:
   androidMaxAspectRatio: 2.4
   androidMinAspectRatio: 1
   applicationIdentifier:
-    Android: com.Hattori.CarSimulator
+    Android: com.HattoriHanzo.CarSimulator
     Standalone: com.UnityTechnologies.UniversalMobile3DTemplate
     iPhone: com.UnityTechnologies.UniversalMobile3DTemplate
   buildNumber:
@@ -557,7 +557,10 @@ PlayerSettings:
     m_EncodingQuality: 2
   m_BuildTargetGroupHDRCubemapEncodingQuality: []
   m_BuildTargetGroupLightmapSettings: []
-  m_BuildTargetGroupLoadStoreDebugModeSettings: []
+  m_BuildTargetGroupLoadStoreDebugModeSettings:
+  - m_BuildTarget: Standalone
+    m_DebugModeEnabled: 1
+    m_IsEditorOnly: 1
   m_BuildTargetNormalMapEncoding:
   - m_BuildTarget: Android
     m_Encoding: 1
