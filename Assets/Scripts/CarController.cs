@@ -1,5 +1,6 @@
 using TMPro;
 using Unity.VisualScripting;
+using Unity.XR.Oculus.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Android;
@@ -24,7 +25,8 @@ public class CarController : MonoBehaviour
     [SerializeField] private PedalController brakePedal;
     [SerializeField] private SteeringWheelController steeringWheel;
     [SerializeField] private HandbrakeController handbrake;
-
+    [SerializeField] private IgnitionKey Key;
+    [SerializeField] private AutomatTransmission automat;
 
     private float speed;
     private float currentSpeed;
@@ -35,17 +37,23 @@ public class CarController : MonoBehaviour
     private float horizontalInput;
     private float brakeInput;
     private bool isBraking;
+    private bool isEngineRunning;
 
     private void Start()
     {
         carRigidbody = GetComponent<Rigidbody>();
         isBraking = true;
+        isEngineRunning = false;
+        handbrake.isPressed = isBraking;
+        Key.isPressed = isEngineRunning;
+        automat.currentGear = automat.gearOrder[0];
     }
 
 
     void Update()
     {
         CheckInput();
+        CheckAT();
         speed = carRigidbody.linearVelocity.magnitude;
         Speedometr();
         Rpm();
@@ -71,26 +79,40 @@ public class CarController : MonoBehaviour
             verticalInput = 0;
         }
 
-        brakeInput = Mathf.Abs(brakeInput);
-        if (brakePedal.isPressed )
+        brakeInput = isBraking ? brakeForce : 0f;
+        if (brakePedal.isPressed)
         {
-            brakeInput = verticalInput;
-            verticalInput -= brakePedal.pedalInput;
-        }
-        else
-        {
-            brakeInput = 0;        
-        }
-
-        isBraking = handbrake.isPressed;
-        if (handbrake.isPressed)
-        {
-            brakeInput += handbrake.impact;
-            isBraking = true;
+            verticalInput = brakeInput;
+            brakeInput -= brakePedal.pedalInput;
+            for (float i = speed; brakePedal.pedalInput > 0; i--)
+            {
+                isBraking = true;
+            }
         }
         else
         {
             brakeInput = 0;
+        }
+
+        if (handbrake.isPressed)
+        {
+            isBraking = true;
+        }
+        else
+        {
+            isBraking = false;
+        }
+
+        if (Key.isPressed)
+        {
+            isEngineRunning = true;
+        }
+        else 
+        {
+            isEngineRunning = false;
+            verticalInput = 0;
+            horizontalInput = 0;
+            currentRpm = 0;
         }
 
         horizontalInput = Input.GetAxis("Horizontal");
@@ -100,6 +122,31 @@ public class CarController : MonoBehaviour
         }
     }
 
+    private void CheckAT()
+    {
+        if (automat.IsPark())
+        {
+            verticalInput = 0;
+            brakeInput += automat.gearInput;
+        }
+
+        else if (automat.IsReverse())
+        {
+            verticalInput -= automat.gearInput;
+            verticalInput -= gasPedal.pedalInput;
+        }
+
+        else if (automat.IsDrive())
+        {
+            verticalInput += automat.gearInput;
+            verticalInput += gasPedal.pedalInput;
+        }
+
+        else if (automat.IsNeutral())
+        {
+            verticalInput = 0;
+        }
+    }
     private void HandleSteering()
     {
         wheelCollider[0].steerAngle = horizontalInput * steeringAngle;
@@ -110,16 +157,16 @@ public class CarController : MonoBehaviour
     {
         foreach (WheelCollider wheel in wheelCollider)
         {
-            wheel.motorTorque = verticalInput * motorPower * Time.deltaTime;
+           wheel.motorTorque = verticalInput * motorPower * Time.deltaTime;
         }
     }
 
     private void HandleBrake()
     {
-        brakeInput = isBraking ? brakeForce : 0f;
+       brakeInput = isBraking ? brakeForce : 0f;
        foreach (WheelCollider wheel in wheelCollider)
-       {
-          wheel.brakeTorque = brakeInput;
+       { 
+          wheel.brakeTorque = brakeInput;  
        }
     }
 
@@ -142,8 +189,8 @@ public class CarController : MonoBehaviour
 
     private void Speedometr()
     {
-        currentSpeed = Mathf.Round(speed * 36f);
-        speedometr.text = currentSpeed.ToString() +  $"км/ч" ;
+        speed *= 3.6f;
+        speedometr.text = $"{(int)speed} км/ч";
     }
 
     private void Rpm()
@@ -151,7 +198,8 @@ public class CarController : MonoBehaviour
         foreach (WheelCollider wheelCollider in wheelCollider)
         {
             currentRpm = wheelCollider.rpm * 1000f;
-            tahometr.text = currentRpm.ToString() + $"об/мин";
+            //currentRpm = Mathf.Clamp(currentRpm, MinRpm, MaxRpm);
+            tahometr.text = $"{(int)currentRpm} об/мин";
         }
     }
 }

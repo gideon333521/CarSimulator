@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using TMPro;
 using System.Collections;
 using UnityEngine.UI;
+using System.ComponentModel;
 public class AuthManager : MonoBehaviour
 {
     public DependencyStatus dependencyStatus;
@@ -55,7 +56,7 @@ public class AuthManager : MonoBehaviour
     }
 
      void AuthStateChanged(object sender, System.EventArgs eventArgs)
-    {
+     {
         if (auth.CurrentUser != user)
         {
             bool signedIn = user != auth.CurrentUser && auth.CurrentUser != null;
@@ -71,10 +72,12 @@ public class AuthManager : MonoBehaviour
             if (signedIn)
             {
                 Debug.Log("Signed in " + user.UserId);
+                IDText.text = user.UserId;
+                NameText.text = user.DisplayName;
                 UIManager.Instance.OpenProfilePanel();
             }
         }
-    }
+     }
 
     public void Login()
     {
@@ -117,12 +120,21 @@ public class AuthManager : MonoBehaviour
         else
         {
             user = loginTask.Result.User;
+            UserProfile nameProfile = new UserProfile { DisplayName = References.Name };
+            UserProfile surnameProfile = new UserProfile { DisplayName = References.Surname };
+            UserProfile patronymicProfile = new UserProfile { DisplayName = References.Patronymic };
 
-            Debug.LogFormat("{0} Вы успешно авторизовались", user.DisplayName);
-            ErrorSignText.text = "Вы успешно авторизовались, здравствуйте" + user.DisplayName;
+            var updateProfileTask = user.UpdateUserProfileAsync(nameProfile);
+            updateProfileTask = user.UpdateUserProfileAsync(surnameProfile);
+            updateProfileTask = user.UpdateUserProfileAsync(patronymicProfile);
             ErrorSignText.color = Color.green;
+            ErrorSignText.text = "Вы успешно авторизовались, здравствуйте" + user.DisplayName;
+            Debug.LogFormat("{0} Вы успешно авторизовались", user.DisplayName);
             UIManager.Instance.OpenProfilePanel();
             IDText.text = user.UserId;
+            NameText.text = user.DisplayName;
+            SurnameText.text = surnameProfile.DisplayName;
+            PatronymicText.text = patronymicProfile.DisplayName;
         }
     }
 
@@ -142,9 +154,6 @@ public class AuthManager : MonoBehaviour
 
     private IEnumerator RegisterAsync(string name, string surname, string patronymic, string email, string password)
     {
-        References.Name = name;
-        References.Surname = surname;
-        References.Patronymic = patronymic;
         if (name == "")
         {
             Debug.LogError("Заполните имя");
@@ -210,10 +219,13 @@ public class AuthManager : MonoBehaviour
             {
                 // Get The User After Registration Success
                 user = registerTask.Result.User;
-              
-                UserProfile userProfile = new UserProfile { DisplayName = name };
+                UserProfile nameProfile = new UserProfile { DisplayName = name };
+                UserProfile surnameProfile = new UserProfile { DisplayName = surname };
+                UserProfile patronymicProfile = new UserProfile { DisplayName = patronymic };
 
-                var updateProfileTask = user.UpdateUserProfileAsync(userProfile);
+                var updateProfileTask = user.UpdateUserProfileAsync(nameProfile);
+                updateProfileTask = user.UpdateUserProfileAsync(surnameProfile);
+                updateProfileTask = user.UpdateUserProfileAsync(patronymicProfile);
 
 
 
@@ -254,14 +266,16 @@ public class AuthManager : MonoBehaviour
                 }
                 else
                 {
-                    Debug.Log("Регистрация прошла успешна, Добро пожаловать " + user.DisplayName);
-                    ErrorRegText.text = "Регистрация прошла успешна, Добро пожаловать " + user.DisplayName;
+                    Debug.Log("Регистрация прошла успешна, Добро пожаловать " +  user.DisplayName);
+                    ErrorRegText.text = "Регистрация прошла успешна, Добро пожаловать " +  user.DisplayName;
                     ErrorRegText.color = Color.green;
                     UIManager.Instance.OpenProfilePanel();
+                    IDText.text = user.UserId;
+                    NameText.text = nameProfile.DisplayName;
+                    SurnameText.text = surnameProfile.DisplayName;
+                    PatronymicText.text = patronymicProfile.DisplayName;
                 }
             }
         }
     }
-
-
 }
