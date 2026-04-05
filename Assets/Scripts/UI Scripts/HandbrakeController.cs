@@ -7,7 +7,7 @@ using UnityEngine.InputSystem;
 
 public class HandbrakeController : MonoBehaviour
 {
-    [SerializeField] private GameObject handbrake;
+    [SerializeField] private Button handbrake;
     [SerializeField] private Text text;
 
     public bool isPressed;
@@ -36,7 +36,6 @@ public class HandbrakeController : MonoBehaviour
     void SetUpHandbrake()
     {
         EventTrigger trigger = gameObject.AddComponent<EventTrigger>();
-
         var pointerClickDown = new EventTrigger.Entry();
         pointerClickDown.eventID = EventTriggerType.PointerClick;
         pointerClickDown.callback.AddListener((e) => onClick());

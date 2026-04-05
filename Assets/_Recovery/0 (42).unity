@@ -927,6 +927,11 @@ MonoBehaviour:
   gearInput: 0
   currentGear: 0
   gearOrder: 00000000010000000200000003000000
+  gearPositions:
+  - 0
+  - 0
+  - 0
+  - 0
 --- !u!1 &307874362
 GameObject:
   m_ObjectHideFlags: 0
@@ -3132,7 +3137,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CarController
   motorPower: 100
-  brakeForce: 100
+  brakeForce: 1000
   steeringAngle: 30
   MinRpm: 700
   MaxRpm: 7000

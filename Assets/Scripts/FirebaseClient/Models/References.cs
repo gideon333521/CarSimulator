@@ -5,7 +5,7 @@ using Firebase.Auth;
 
 public class References : MonoBehaviour
 {
-    public static string Name;
-    public static string Surname;
-    public static string Patronymic;
+    public static string Name { get; set; }
+    public static string Surname { get; set; }
+    public static string Patronymic { get; set; }
 }

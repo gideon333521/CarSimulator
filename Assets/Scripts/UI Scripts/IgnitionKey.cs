@@ -1,34 +1,43 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class IgnitionKey : MonoBehaviour
 {
-    [SerializeField] Button Key;
-    public Text buttonText;
-    private bool isEngineRunning = false;
-    
+    [SerializeField] private Button Key;
+    [SerializeField] private Text buttonText;
+    public bool isPressed;
+
     void Start()
     {
-        Key.onClick.AddListener(ToggleEngine);
+        SetUpKey();
     }
-   
 
-    public void ToggleEngine()
-    {
-        isEngineRunning = !isEngineRunning;
-        if (isEngineRunning)
+     void Update()
+     {
+        if (isPressed)
         {
-            isEngineRunning = false;
-            buttonText.text = "Stop";
+            buttonText.text = "On";
         }
         else 
         {
-            isEngineRunning = true;
-            buttonText.text = "Start";
+            buttonText.text = "Off";
         }
     }
 
-    public bool EngineOn() => isEngineRunning = true;
-    public bool EngineOf() => isEngineRunning = false;
+    void SetUpKey()
+    {
+        EventTrigger trigger = gameObject.AddComponent<EventTrigger>();
+        var pointerClickDown = new EventTrigger.Entry();
+        pointerClickDown.eventID = EventTriggerType.PointerClick;
+        pointerClickDown.callback.AddListener((e) => onClick());
+        trigger.triggers.Add(pointerClickDown);
+    }
+
+    void onClick()
+    {
+        isPressed = !isPressed;
+    }
 }

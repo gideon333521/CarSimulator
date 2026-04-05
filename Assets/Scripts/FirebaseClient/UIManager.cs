@@ -11,8 +11,6 @@ public class UIManager : MonoBehaviour
     public GameObject registerPanel;
     public GameObject profilePanel;
 
-    public FirebaseUser user;
-    private FirebaseAuth auth;
     private void Awake()
     {
         CreateInstance();
