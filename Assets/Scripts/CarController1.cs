@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Android;
 using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 public class CarController : MonoBehaviour
 {
@@ -13,9 +14,12 @@ public class CarController : MonoBehaviour
     [SerializeField] private float brakeForce;
     [SerializeField] private float steeringAngle = 30f;
 
+    [SerializeField] private int[] gears;
+    [SerializeField] private float gearRatio = 5f;
     [SerializeField] private float MinRpm;
     [SerializeField] private float MaxRpm;
     private float currentRpm;
+    private int currentGear;
 
     [SerializeField] WheelCollider[] wheelCollider;
     [SerializeField] Transform[] wheels;
@@ -28,6 +32,9 @@ public class CarController : MonoBehaviour
     [SerializeField] private IgnitionKey Key;
     [SerializeField] private AutomatTransmission automat;
 
+    [SerializeField] private GameObject LeftMirror;
+    [SerializeField] private GameObject RightMirror;
+
     private float speed;
     private float currentSpeed;
     [SerializeField] private TextMeshProUGUI speedometr;
@@ -36,6 +43,7 @@ public class CarController : MonoBehaviour
     private float verticalInput;
     private float horizontalInput;
     private float brakeInput;
+    private float handbrakeInput;
     private bool isBraking;
     private bool isEngineRunning;
 
@@ -79,27 +87,16 @@ public class CarController : MonoBehaviour
             verticalInput = 0;
         }
 
-        brakeInput = isBraking ? brakeForce : 0f;
-        if (brakePedal.isPressed)
+        if (brakePedal.isPressed || handbrake.isPressed)
         {
-            verticalInput = brakeInput;
-            brakeInput -= brakePedal.pedalInput;
-            for (float i = speed; brakePedal.pedalInput > 0; i--)
-            {
-                isBraking = true;
-            }
-        }
-        else
-        {
-            brakeInput = 0;
-        }
-
-        if (handbrake.isPressed)
-        {
+            brakePedal.pedalInput = isBraking ? brakePedal.pedalInput : 0f;
+            brakeInput = Mathf.Min(brakeInput + brakePedal.pedalInput * Time.deltaTime * 3f, brakeForce);
+            verticalInput = 0;
             isBraking = true;
         }
         else
         {
+            brakeInput = 0;
             isBraking = false;
         }
 
@@ -112,7 +109,6 @@ public class CarController : MonoBehaviour
             isEngineRunning = false;
             verticalInput = 0;
             horizontalInput = 0;
-            currentRpm = 0;
         }
 
         horizontalInput = Input.GetAxis("Horizontal");
@@ -128,12 +124,15 @@ public class CarController : MonoBehaviour
         {
             verticalInput = 0;
             brakeInput += automat.gearInput;
+
         }
 
         else if (automat.IsReverse())
         {
             verticalInput -= automat.gearInput;
             verticalInput -= gasPedal.pedalInput;
+            LeftMirror.SetActive(true);
+            RightMirror.SetActive(true);
         }
 
         else if (automat.IsDrive())
@@ -163,11 +162,11 @@ public class CarController : MonoBehaviour
 
     private void HandleBrake()
     {
-       brakeInput = isBraking ? brakeForce : 0f;
-       foreach (WheelCollider wheel in wheelCollider)
-       { 
-          wheel.brakeTorque = brakeInput;  
-       }
+        brakeInput = isBraking ? brakeForce : 0f;
+        foreach (WheelCollider wheel in wheelCollider)
+        {
+            wheel.brakeTorque = brakeInput;
+        }          
     }
 
     private void UpdateWheelVisuals()
@@ -195,11 +194,35 @@ public class CarController : MonoBehaviour
 
     private void Rpm()
     {
-        foreach (WheelCollider wheelCollider in wheelCollider)
+        currentRpm = CalculateRPM();
+        if (isEngineRunning)
         {
-            currentRpm = wheelCollider.rpm * 1000f;
-            //currentRpm = Mathf.Clamp(currentRpm, MinRpm, MaxRpm);
             tahometr.text = $"{(int)currentRpm} об/мин";
         }
+        else
+        {
+            tahometr.text = $"{0} об/мин";
+        }
+    }
+
+    float CalculateRPM()
+    {
+        float totalRPM = 0f;
+        if (speed < 0.5f && gasPedal.pedalInput < 0.1f)
+        {
+            return MinRpm; 
+        }
+
+        if (speed < 0.5f && gasPedal.pedalInput > 0.1f)
+        {
+            return Mathf.Lerp(MinRpm, MaxRpm, gasPedal.pedalInput);
+        }
+        foreach (WheelCollider wheelCollider in wheelCollider)
+        {
+            totalRPM += Mathf.Abs(wheelCollider.rpm);
+        }
+        float avgRPM = totalRPM / wheelCollider.Length;
+        float engineRPM = avgRPM * gearRatio;
+        return Mathf.Clamp(engineRPM, MinRpm, MaxRpm);
     }
 }
