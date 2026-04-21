@@ -14,10 +14,10 @@ public class CarController : MonoBehaviour
     [SerializeField] private float brakeForce;
     [SerializeField] private float steeringAngle = 30f;
 
-    [SerializeField] private int[] gears;
-    [SerializeField] private float gearRatio = 5f;
+    [SerializeField] private float[] gearRatios;
     [SerializeField] private float MinRpm;
     [SerializeField] private float MaxRpm;
+    private float gearRatio;
     private float currentRpm;
     private int currentGear;
 
@@ -36,14 +36,12 @@ public class CarController : MonoBehaviour
     [SerializeField] private GameObject RightMirror;
 
     private float speed;
-    private float currentSpeed;
     [SerializeField] private TextMeshProUGUI speedometr;
     [SerializeField] private TextMeshProUGUI tahometr;
 
     private float verticalInput;
     private float horizontalInput;
     private float brakeInput;
-    private float handbrakeInput;
     private bool isBraking;
     private bool isEngineRunning;
 
@@ -189,7 +187,7 @@ public class CarController : MonoBehaviour
     private void Speedometr()
     {
         speed *= 3.6f;
-        speedometr.text = $"{(int)speed} км/ч";
+        speedometr.text = $"{(int)speed}км/ч";
     }
 
     private void Rpm()
@@ -197,11 +195,11 @@ public class CarController : MonoBehaviour
         currentRpm = CalculateRPM();
         if (isEngineRunning)
         {
-            tahometr.text = $"{(int)currentRpm} об/мин";
+            tahometr.text = Mathf.RoundToInt(currentRpm).ToString() + "об/мин";
         }
         else
         {
-            tahometr.text = $"{0} об/мин";
+            tahometr.text = $"{0}об/мин";
         }
     }
 
@@ -213,15 +211,12 @@ public class CarController : MonoBehaviour
             return MinRpm; 
         }
 
-        if (speed < 0.5f && gasPedal.pedalInput > 0.1f)
-        {
-            return Mathf.Lerp(MinRpm, MaxRpm, gasPedal.pedalInput);
-        }
-        foreach (WheelCollider wheelCollider in wheelCollider)
+        foreach (var wheelCollider in wheelCollider)
         {
             totalRPM += Mathf.Abs(wheelCollider.rpm);
         }
         float avgRPM = totalRPM / wheelCollider.Length;
+        gearRatio = gearRatios[currentGear];
         float engineRPM = avgRPM * gearRatio;
         return Mathf.Clamp(engineRPM, MinRpm, MaxRpm);
     }

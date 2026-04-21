@@ -7,7 +7,9 @@ using UnityEngine.UI;
 public class IgnitionKey : MonoBehaviour
 {
     [SerializeField] private Button Key;
-    [SerializeField] private Text buttonText;
+    [SerializeField] private Image image;
+    [SerializeField] private Color activateColor;
+    [SerializeField] private Color deactivateColor;
     public bool isPressed;
 
     void Start()
@@ -19,11 +21,11 @@ public class IgnitionKey : MonoBehaviour
      {
         if (isPressed)
         {
-            buttonText.text = "On";
+            image.color = activateColor;
         }
         else 
         {
-            buttonText.text = "Off";
+            image.color = deactivateColor;
         }
     }
 

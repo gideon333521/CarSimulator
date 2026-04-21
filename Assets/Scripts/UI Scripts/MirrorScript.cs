@@ -3,7 +3,6 @@ using UnityEngine.UI;
 
 public class MirrorScript : MonoBehaviour
 {
-    private AutomatTransmission automat;
     [SerializeField] private GameObject LeftMirror;
     [SerializeField] private GameObject RightMirror;
     [SerializeField] private Button btn;
