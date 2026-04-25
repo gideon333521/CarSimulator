@@ -63,17 +63,17 @@ public class AuthManager : MonoBehaviour
 
             if (!signedIn && user != null)
             {
-                Debug.Log("Signed out " + user.UserId);
                 UIManager.Instance.SignOutPanel();
+                Debug.Log("Signed out " + user.UserId);
             }
 
-            user = auth.CurrentUser;
 
             if (signedIn)
             {
                 Debug.Log("Signed in " + user.UserId);
                 IDText.text = user.UserId;
                 NameText.text = user.DisplayName;
+                user = auth.CurrentUser;
                 UIManager.Instance.OpenProfilePanel();
             }
         }
@@ -140,11 +140,8 @@ public class AuthManager : MonoBehaviour
 
     public void SignOut()
     {
-        if (auth != null && user != null)
-        {
-            auth.SignOut();
-            UIManager.Instance.SignOutPanel();
-        }
+       auth.SignOut();
+       UIManager.Instance.SignOutPanel();
     }
 
     public void Register()
