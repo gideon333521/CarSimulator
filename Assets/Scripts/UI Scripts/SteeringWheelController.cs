@@ -6,7 +6,8 @@ using UnityEngine.UI;
 public class SteeringWheelController : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,IDragHandler
 {
     public bool Wheelbeingheld = false;   
-    [SerializeField] private RectTransform SteeringWheel;
+    public RectTransform SteeringWheel;
+    public GameObject reference;
     private float WheelAngle = 0f;
     private float LastWheelAngle = 0f;
     private Vector2 center;

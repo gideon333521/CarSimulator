@@ -4,31 +4,45 @@ using UnityEngine;
 public class TurnSignalLight : MonoBehaviour
 {
     [SerializeField] private Light TSlight;
-    [SerializeField] private float minIntensity;
-    [SerializeField] private float maxIntensity;
+    [SerializeField] private TurnSignal LeftTS;
+    [SerializeField] private TurnSignal RightTS;
+    [SerializeField] private AlarmSystem alarm;
+    [SerializeField] private float time;
+    private Coroutine coroutine;
     void Start()
     {
         TSlight = GetComponent<Light>();
-        StartCoroutine(Flicker());
+        TSlight.enabled = false;
     }
 
-    IEnumerator Flicker()
+    private void Update()
     {
-        float t = 0.0f;
-        float duration = Random.Range(0f, 0.1f); // Длительность мерцания
-        float currIntensity = TSlight.intensity;
-        float targetIntensity = TSlight.enabled ? minIntensity : maxIntensity;
-        float variation = Random.Range(-20.0f, 20.0f);
-        targetIntensity += variation;
-
-        while (t < duration)
+        if (LeftTS.isPressed || RightTS.isPressed || alarm.isPressed)
         {
-            TSlight.intensity = Mathf.Lerp(currIntensity, targetIntensity, t / duration);
-            t += Time.deltaTime;
-            yield return null;
+            if (coroutine == null)
+            {
+               coroutine = StartCoroutine(Flicker());
+            }
         }
+        else
+        {
+            if (coroutine != null)
+            {
+                StopCoroutine(coroutine);
+                coroutine = null;
+                TSlight.enabled = false;
+            }
+        }
+    }
 
-         StartCoroutine(Flicker());
+    private IEnumerator Flicker()
+    {
+        var waitTime = new WaitForSeconds(time);
+        while (true)
+        {
+            TSlight.enabled = !TSlight.enabled;
+            yield return waitTime;
+        }
     }
 }
 
