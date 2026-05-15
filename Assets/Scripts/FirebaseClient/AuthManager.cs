@@ -1,17 +1,20 @@
-using UnityEngine;
 using Firebase;
 using Firebase.Auth;
+using Firebase.Database;
 using System;
+using System.Collections;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using TMPro;
-using System.Collections;
+using UnityEditor.VersionControl;
+using UnityEngine;
 using UnityEngine.UI;
-using System.ComponentModel;
 public class AuthManager : MonoBehaviour
 {
     public DependencyStatus dependencyStatus;
-    public FirebaseUser user;
+    private FirebaseUser user;
     private FirebaseAuth auth;
+    private DatabaseReference reference;
 
     public TMP_InputField loginEmail;
     public TMP_InputField loginPassword;
@@ -46,6 +49,30 @@ public class AuthManager : MonoBehaviour
         });
     }
 
+    private void Start()
+    {
+        reference = FirebaseDatabase.DefaultInstance.RootReference;
+        StartCoroutine(CheckAndFixDepedemciesAsync());
+    }
+     void AuthStateChanged(object sender, System.EventArgs eventArgs)
+     {
+        if (auth.CurrentUser != user)
+        {
+            bool signedIn = user != auth.CurrentUser && auth.CurrentUser != null;
+
+            if (!signedIn && user != null)
+            {
+                Debug.Log("Signed out " + user.UserId);
+            }
+
+
+            if (signedIn)
+            {
+                Debug.Log("Signed in " + user.UserId);
+            }
+        }
+     }
+
     void InitializeFirebase()
     {
         //Set the default instance object
@@ -55,29 +82,53 @@ public class AuthManager : MonoBehaviour
         AuthStateChanged(this, null);
     }
 
-     void AuthStateChanged(object sender, System.EventArgs eventArgs)
-     {
-        if (auth.CurrentUser != user)
+    private IEnumerator CheckForAutoLogin()
+    {
+        if (user != null)
         {
-            bool signedIn = user != auth.CurrentUser && auth.CurrentUser != null;
+            var reloadUserTask = user.ReloadAsync();
 
-            if (!signedIn && user != null)
-            {
-                UIManager.Instance.SignOutPanel();
-                Debug.Log("Signed out " + user.UserId);
-            }
+            yield return new WaitUntil(() => reloadUserTask.IsCompleted);
+            AutoLogin();
+        }
+        else 
+        {
+            UIManager.Instance.OpenLoginPanel();
+        }
+    }
 
-
-            if (signedIn)
-            {
-                Debug.Log("Signed in " + user.UserId);
-                IDText.text = user.UserId;
-                NameText.text = user.DisplayName;
-                user = auth.CurrentUser;
-                UIManager.Instance.OpenProfilePanel();
-            }
+     public void AutoLogin()
+     {
+        if (user != null)
+        {
+            UIManager.Instance.OpenProfilePanel();
+        }
+        else 
+        {
+            UIManager.Instance.OpenLoginPanel();
         }
      }
+
+    private IEnumerator CheckAndFixDepedemciesAsync()
+    {
+        var dependencyyTask = FirebaseApp.CheckAndFixDependenciesAsync();
+
+        yield return new WaitUntil(() => dependencyyTask.IsCompleted);
+
+        dependencyStatus = dependencyyTask.Result;
+
+        if (dependencyStatus == DependencyStatus.Available)
+        {
+            InitializeFirebase();
+            yield return new WaitForEndOfFrame();
+            StartCoroutine(CheckForAutoLogin());
+        }
+        else
+        {
+            Debug.LogError("Could not resolve all firebase dependencies: " + dependencyStatus);
+        }
+    }
+
 
     public void Login()
     {
@@ -113,28 +164,19 @@ public class AuthManager : MonoBehaviour
                     break;
             }
 
-            Debug.Log(failedMessage);
-            ErrorSignText.text = failedMessage;
+            Debug.Log(failedMessage + authError);
+            ErrorSignText.text = failedMessage + authError;
             ErrorSignText.color = Color.red;
         }
         else
         {
             user = loginTask.Result.User;
-            UserProfile nameProfile = new UserProfile { DisplayName = References.Name };
-            UserProfile surnameProfile = new UserProfile { DisplayName = References.Surname };
-            UserProfile patronymicProfile = new UserProfile { DisplayName = References.Patronymic };
-
-            var updateProfileTask = user.UpdateUserProfileAsync(nameProfile);
-            updateProfileTask = user.UpdateUserProfileAsync(surnameProfile);
-            updateProfileTask = user.UpdateUserProfileAsync(patronymicProfile);
             ErrorSignText.color = Color.green;
             ErrorSignText.text = "Вы успешно авторизовались, здравствуйте" + user.DisplayName;
             Debug.LogFormat("{0} Вы успешно авторизовались", user.DisplayName);
             UIManager.Instance.OpenProfilePanel();
             IDText.text = user.UserId;
-            NameText.text = user.DisplayName;
-            SurnameText.text = surnameProfile.DisplayName;
-            PatronymicText.text = patronymicProfile.DisplayName;
+            References.Name = user.DisplayName;
         }
     }
 
@@ -217,15 +259,7 @@ public class AuthManager : MonoBehaviour
                 // Get The User After Registration Success
                 user = registerTask.Result.User;
                 UserProfile nameProfile = new UserProfile { DisplayName = name };
-                UserProfile surnameProfile = new UserProfile { DisplayName = surname };
-                UserProfile patronymicProfile = new UserProfile { DisplayName = patronymic };
-
                 var updateProfileTask = user.UpdateUserProfileAsync(nameProfile);
-                updateProfileTask = user.UpdateUserProfileAsync(surnameProfile);
-                updateProfileTask = user.UpdateUserProfileAsync(patronymicProfile);
-
-
-
                 yield return new WaitUntil(() => updateProfileTask.IsCompleted);
 
                 if (updateProfileTask.Exception != null)
@@ -268,9 +302,9 @@ public class AuthManager : MonoBehaviour
                     ErrorRegText.color = Color.green;
                     UIManager.Instance.OpenProfilePanel();
                     IDText.text = user.UserId;
-                    NameText.text = nameProfile.DisplayName;
-                    SurnameText.text = surnameProfile.DisplayName;
-                    PatronymicText.text = patronymicProfile.DisplayName;
+                    References.Name = NameText.text;
+                    References.Surname = SurnameText.text;
+                    References.Patronymic = PatronymicText.text;
                 }
             }
         }

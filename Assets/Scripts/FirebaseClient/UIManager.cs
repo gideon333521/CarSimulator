@@ -26,9 +26,9 @@ public class UIManager : MonoBehaviour
 
     public void OpenLoginPanel()
     {
-        
        loginPanel.SetActive(true);
        registerPanel.SetActive(false);
+       profilePanel.SetActive(false);
     }
 
     public void OpenRegistrationPanel()

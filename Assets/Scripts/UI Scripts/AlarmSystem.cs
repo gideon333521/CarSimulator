@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,10 +8,9 @@ public class AlarmSystem : MonoBehaviour
     [SerializeField] private Button alarmSystem;
     [SerializeField] private Color enableColor;
     [SerializeField] private Color currentColor;
-    //[SerializeField] TurnSignal LeftTS;
-    //[SerializeField] TurnSignal RightTS;
     [SerializeField] private Light[] lights;
-    public bool isPressed;
+    public bool isPressed = false;
+    private Coroutine coroutine;
     void Start()
     {
         alarmSystemPrefab.color = currentColor;
@@ -21,17 +21,36 @@ public class AlarmSystem : MonoBehaviour
     {
         foreach (Light light in lights)
         {
-           if (isPressed)
-           {
-              Color lerpedColor = Color.Lerp(currentColor, enableColor, Mathf.PingPong(Time.time, 1));
-              alarmSystemPrefab.color = lerpedColor;
-              light.enabled = true; 
-           }
-           else
-           {
-              alarmSystemPrefab.color = currentColor;
-              light.enabled = false;
-           }
+            light.enabled = isPressed;
+            if (isPressed)
+            {
+                if (coroutine == null)
+                {
+                    coroutine = StartCoroutine(Blink());
+                }
+            }
+            else
+            {
+                if (coroutine != null)
+                {
+                    StopCoroutine(coroutine);
+                    coroutine = null;
+                    alarmSystemPrefab.color = currentColor;
+                }
+            }
+        }
+    }
+
+    IEnumerator Blink()
+    {
+        var wait = new WaitForSeconds(1);
+        while (true)
+        {
+            alarmSystemPrefab.color = enableColor;
+            yield return wait;
+
+            alarmSystemPrefab.color = currentColor;
+            yield return wait;
         }
     }
 

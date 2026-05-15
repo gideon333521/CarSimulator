@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,7 +10,9 @@ public class TurnSignal : MonoBehaviour
     [SerializeField] private Color enableColor;
     [SerializeField] private Color currentColor;
     [SerializeField] private Light[] lights;
-    public bool isPressed;
+    [SerializeField] private AlarmSystem alarm;
+    public bool isPressed = false;
+    private Coroutine coroutine;
 
     void Start()
     {
@@ -20,22 +24,42 @@ public class TurnSignal : MonoBehaviour
     {
         foreach(Light light in lights)
         {
-            if (isPressed)
+            light.enabled = isPressed;
+            if (isPressed || alarm.isPressed)
             {
-                Color lerpedColor = Color.Lerp(currentColor, enableColor, Mathf.PingPong(Time.time, 1));
-                turnSignalPrefab.color = lerpedColor;
-                light.enabled = true;
+                if (coroutine == null)
+                {
+                    coroutine = StartCoroutine(Blink());
+                }
             }
             else 
             {
-                turnSignalPrefab.color = currentColor;
-                light.enabled = false;
+                if (coroutine != null)
+                {
+                    StopCoroutine(coroutine);
+                    coroutine = null;
+                    turnSignalPrefab.color = currentColor;
+                }
             }
+        }
+    }
+
+    IEnumerator Blink()
+    {
+        var wait = new WaitForSeconds(1);
+        while (true)
+        {
+            turnSignalPrefab.color = enableColor;
+            yield return wait;
+
+            turnSignalPrefab.color = currentColor;
+            yield return wait;
         }
     }
 
     void OnPointerClick()
     {
         isPressed = !isPressed;
+
     }
 }

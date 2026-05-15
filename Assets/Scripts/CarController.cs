@@ -1,25 +1,44 @@
+using System;
+using System.Collections;
+using System.Drawing.Text;
+using System.Xml;
 using TMPro;
 using Unity.VisualScripting;
-using Unity.XR.Oculus.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Android;
 using UnityEngine.UI;
 using UnityEngine.UIElements;
 
+
 public class CarController : MonoBehaviour
 {
+    public enum HandlingState
+    {
+        SteeringWheel,
+        HandleButtons
+    }
     [Header("Car Settings")]
     [SerializeField] private float motorPower;
+    private float currentTorque;
     [SerializeField] private float brakeForce;
     [SerializeField] private float steeringAngle = 30f;
 
     [SerializeField] private float[] gearRatios;
     [SerializeField] private float MinRpm;
     [SerializeField] private float MaxRpm;
-    private float gearRatio;
+    [SerializeField] private float increaseRpm;
+    [SerializeField] private float decreaseRpm;
+    [SerializeField] private AnimationCurve hpToCurve;
+    [SerializeField] private float differentialRatio;
     private float currentRpm;
-    private int currentGear;
+    [SerializeField] private int currentGear = 0;
+
+    [SerializeField] private Transform rpmneedle;
+    [SerializeField] private float minRotation;
+    [SerializeField] private float maxRotation;
+
+    [SerializeField] private float changeGearTime = 0.5f;
 
     [SerializeField] WheelCollider[] wheelCollider;
     [SerializeField] Transform[] wheels;
@@ -28,12 +47,12 @@ public class CarController : MonoBehaviour
     [SerializeField] private PedalController gasPedal;
     [SerializeField] private PedalController brakePedal;
     [SerializeField] private SteeringWheelController steeringWheel;
+    [SerializeField] private GameObject HandleButtons;
+    [SerializeField] private SteeringButton leftBtn;
+    [SerializeField] private SteeringButton rightBtn;
     [SerializeField] private HandbrakeController handbrake;
     [SerializeField] private IgnitionKey Key;
     [SerializeField] private AutomatTransmission automat;
-
-    [SerializeField] private GameObject LeftMirror;
-    [SerializeField] private GameObject RightMirror;
 
     private float speed;
     [SerializeField] private TextMeshProUGUI speedometr;
@@ -45,6 +64,8 @@ public class CarController : MonoBehaviour
     private float brakeInput;
     private bool isBraking;
     private bool isEngineRunning;
+    public HandlingState handlingState;
+
 
     private void Start()
     {
@@ -59,11 +80,13 @@ public class CarController : MonoBehaviour
 
     void Update()
     {
+        rpmneedle.rotation = Quaternion.Euler(0, 0, Mathf.Lerp(minRotation, maxRotation, currentRpm / (MaxRpm * 1.1f)));
+        Rpm();
         CheckInput();
+        CheckHandle();
         CheckAT();
         speed = carRigidbody.linearVelocity.magnitude;
         Speedometr();
-        Rpm();
     }
 
     void FixedUpdate()
@@ -115,6 +138,32 @@ public class CarController : MonoBehaviour
         {
             horizontalInput += steeringWheel.OutPut;
         }
+
+        if (leftBtn.isPressed)
+        {
+            horizontalInput -= leftBtn.dampenPress;
+        }
+
+        if (rightBtn.isPressed)
+        {
+            horizontalInput += rightBtn.dampenPress;
+        }
+    }
+
+    void CheckHandle()
+    {
+        switch (handlingState)
+        {
+            case HandlingState.SteeringWheel:
+                steeringWheel.reference.SetActive(true);
+                HandleButtons.SetActive(false);
+                break;
+
+            case HandlingState.HandleButtons:
+                steeringWheel.reference.SetActive(false);
+                HandleButtons.SetActive(true);
+                break;
+        }
     }
 
     private void CheckAT()
@@ -127,23 +176,21 @@ public class CarController : MonoBehaviour
 
         }
 
-        if (automat.IsReverse())
+        else if (automat.IsReverse())
         {
             verticalInput -= automat.gearInput;
             verticalInput -= gasPedal.pedalInput;
-            LeftMirror.SetActive(true);
-            RightMirror.SetActive(true);
             gear.text = "R";
         }
 
-        if (automat.IsDrive())
+        else if (automat.IsDrive())
         {
             verticalInput += automat.gearInput;
             verticalInput += gasPedal.pedalInput;
-            gear.text = $"D{currentGear}";
+            gear.text = $"D{currentGear + 1}";
         }
 
-        if (automat.IsNeutral())
+        else if (automat.IsNeutral())
         {
             verticalInput = 0;
             gear.text = "N";
@@ -159,8 +206,35 @@ public class CarController : MonoBehaviour
     {
         foreach (WheelCollider wheel in wheelCollider)
         {
-           wheel.motorTorque = verticalInput * motorPower * Time.deltaTime;
+            currentTorque = CalculateTorqueAT();
+            wheel.motorTorque = verticalInput * currentTorque * Time.deltaTime;
         }
+    }
+
+    float CalculateTorqueAT()
+    {
+        float torque = 0;
+        currentGear = Mathf.Clamp(currentGear, 0, gearRatios.Length);
+        if (currentRpm > increaseRpm)
+        {
+           StartCoroutine(ChangeGear(1));
+        }
+        else if (currentGear < decreaseRpm && currentGear > 1)
+        {
+            StartCoroutine(ChangeGear(-1));
+        }
+        float wheelRpm = 0;
+        if (isEngineRunning)
+        {
+            foreach (WheelCollider wheel in wheelCollider)
+            {
+                wheelRpm += Mathf.Abs(wheel.rpm/2f) * gearRatios[currentGear] * differentialRatio;
+            }
+            currentRpm = Mathf.Lerp(currentRpm, Mathf.Max(MinRpm - 100, wheelRpm), Time.deltaTime * 3f);
+            torque = (hpToCurve.Evaluate(currentRpm / MaxRpm) * motorPower / currentRpm) * gearRatios[currentGear] * differentialRatio * 5252f; 
+        }
+        Debug.Log($"Engine RPM: {currentRpm}, Gear: {currentGear}, GearRatio: {gearRatios[currentGear]}, Wheel RPM: {wheelRpm}, Torque: {torque}");
+        return torque;
     }
 
     private void HandleBrake()
@@ -191,39 +265,56 @@ public class CarController : MonoBehaviour
 
     private void Speedometr()
     {
-        speed *= 3.6f;
-        speedometr.text = $"{(int)speed}км/ч";
+        //foreach (WheelCollider wheel in wheelCollider)
+        //{
+        //    speed = wheel.rpm * wheel.radius * 2f * Mathf.PI / 10f;
+        //}
+       speed *= 3.6f;
+       speedometr.text = Mathf.RoundToInt(speed).ToString() + "км/ч";
+       Debug.Log($"Speed: {speed}");
     }
 
     private void Rpm()
     {
-        currentRpm = CalculateRPM();
+        //currentRpm = CalculateRPM();
         if (isEngineRunning)
         {
-            gasPedal.pedalInput += currentRpm;
             tahometr.text = Mathf.RoundToInt(currentRpm).ToString() + "об/мин";
         }
         else
         {
             tahometr.text = $"{0}об/мин";
+            rpmneedle.rotation = Quaternion.Euler(0,0, minRotation);
         }
     }
 
-    float CalculateRPM()
-    {
-        float totalRPM = 0f;
-        if (speed < 0.5f && gasPedal.pedalInput < 0.1f)
-        {
-            return MinRpm; 
-        }
+    //float CalculateRPM()
+    //{
+    //    float totalRPM = 0f;
+    //    float gearRatio;
+    //    if (speed < 0.5f && gasPedal.pedalInput < 0.1f)
+    //    {
+    //        return MinRpm;
+    //    }
 
-        foreach (WheelCollider wheelCollider in wheelCollider)
+    //    foreach (WheelCollider wheelCollider in wheelCollider)
+    //    {
+    //        totalRPM += Mathf.Abs(wheelCollider.rpm);
+    //    }
+    //    float avgRPM = totalRPM / wheelCollider.Length;
+    //    gearRatio = gearRatios[currentGear];
+    //    float engineRPM = avgRPM * gearRatio;
+    //    return Mathf.Clamp(engineRPM, MinRpm, MaxRpm);
+    //}
+
+    IEnumerator ChangeGear(int gearChange)
+    {
+        int newGear = currentGear + gearChange; // Вычисляем новую шестерню
+                                                // Проверяем, что новая шестерня не отрицательная И не выходит за пределы массива
+        if (newGear >= 0 && newGear < gearRatios.Length)
         {
-            totalRPM += Mathf.Abs(wheelCollider.rpm);
+            yield return new WaitForSeconds(changeGearTime);
+            currentGear = newGear; // Устанавливаем новую шестерню
         }
-        float avgRPM = totalRPM / wheelCollider.Length;
-        gearRatio = gearRatios[currentGear];
-        float engineRPM = avgRPM * gearRatio;
-        return Mathf.Clamp(engineRPM, MinRpm, MaxRpm);
     }
 }
