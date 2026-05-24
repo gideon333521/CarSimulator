@@ -6,7 +6,6 @@ using System.Collections;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using TMPro;
-using UnityEditor.VersionControl;
 using UnityEngine;
 using UnityEngine.UI;
 public class AuthManager : MonoBehaviour
@@ -75,7 +74,7 @@ public class AuthManager : MonoBehaviour
 
     void InitializeFirebase()
     {
-        //Set the default instance object
+        //Записать default instance
         auth = FirebaseAuth.DefaultInstance;
 
         auth.StateChanged += AuthStateChanged;
@@ -170,13 +169,13 @@ public class AuthManager : MonoBehaviour
         }
         else
         {
-            user = loginTask.Result.User;
-            ErrorSignText.color = Color.green;
-            ErrorSignText.text = "Вы успешно авторизовались, здравствуйте" + user.DisplayName;
-            Debug.LogFormat("{0} Вы успешно авторизовались", user.DisplayName);
-            UIManager.Instance.OpenProfilePanel();
-            IDText.text = user.UserId;
-            References.Name = user.DisplayName;
+           user = loginTask.Result.User;
+           ErrorSignText.color = Color.green;
+           ErrorSignText.text = "Вы успешно авторизовались, здравствуйте" + user.DisplayName;
+           Debug.LogFormat("{0} Вы успешно авторизовались", user.DisplayName);
+           UIManager.Instance.OpenProfilePanel();
+           IDText.text = user.UserId;
+           References.Name = user.DisplayName;
         }
     }
 
@@ -264,7 +263,7 @@ public class AuthManager : MonoBehaviour
 
                 if (updateProfileTask.Exception != null)
                 {
-                    // Delete the user if user update failed
+                    // Delete the user if user update failed 
                     user.DeleteAsync();
 
                     Debug.LogError(updateProfileTask.Exception);
@@ -297,14 +296,18 @@ public class AuthManager : MonoBehaviour
                 }
                 else
                 {
-                    Debug.Log("Регистрация прошла успешна, Добро пожаловать " +  user.DisplayName);
-                    ErrorRegText.text = "Регистрация прошла успешна, Добро пожаловать " +  user.DisplayName;
-                    ErrorRegText.color = Color.green;
-                    UIManager.Instance.OpenProfilePanel();
-                    IDText.text = user.UserId;
-                    References.Name = NameText.text;
-                    References.Surname = SurnameText.text;
-                    References.Patronymic = PatronymicText.text;
+                    if (user.DisplayName != null)
+                    {
+                        Debug.Log("Регистрация прошла успешна, Добро пожаловать " +  user.DisplayName);
+                        ErrorRegText.text = "Регистрация прошла успешна, Добро пожаловать " +  user.DisplayName;
+                        ErrorRegText.color = Color.green;
+                        UIManager.Instance.OpenProfilePanel();
+                        IDText.text = user.UserId;
+                        References.Name = NameText.text;
+                        References.Surname = SurnameText.text;
+                        References.Patronymic = PatronymicText.text;
+                        
+                    }
                 }
             }
         }

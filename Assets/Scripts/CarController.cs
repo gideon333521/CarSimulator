@@ -80,7 +80,7 @@ public class CarController : MonoBehaviour
 
     void Update()
     {
-        rpmneedle.rotation = Quaternion.Euler(0, 0, Mathf.Lerp(minRotation, maxRotation, currentRpm / (MaxRpm * 1.1f)));
+        //rpmneedle.rotation = Quaternion.Euler(0, 0, Mathf.Lerp(minRotation, maxRotation, currentRpm / (MaxRpm * 1.1f)));
         Rpm();
         CheckInput();
         CheckHandle();
@@ -207,7 +207,7 @@ public class CarController : MonoBehaviour
         foreach (WheelCollider wheel in wheelCollider)
         {
             currentTorque = CalculateTorqueAT();
-            wheel.motorTorque = verticalInput * currentTorque * Time.deltaTime;
+            wheel.motorTorque = verticalInput * currentTorque;
         }
     }
 
@@ -259,16 +259,11 @@ public class CarController : MonoBehaviour
        Vector3 position;
        Quaternion rotation;
        collider.GetWorldPose(out position, out rotation);
-       transform.position = position;
-       transform.rotation = rotation;
+       transform.SetPositionAndRotation(position, rotation);
     }
 
     private void Speedometr()
     {
-        //foreach (WheelCollider wheel in wheelCollider)
-        //{
-        //    speed = wheel.rpm * wheel.radius * 2f * Mathf.PI / 10f;
-        //}
        speed *= 3.6f;
        speedometr.text = Mathf.RoundToInt(speed).ToString() + "км/ч";
        Debug.Log($"Speed: {speed}");
@@ -280,6 +275,7 @@ public class CarController : MonoBehaviour
         if (isEngineRunning)
         {
             tahometr.text = Mathf.RoundToInt(currentRpm).ToString() + "об/мин";
+            rpmneedle.rotation = Quaternion.Euler(0, 0, Mathf.Lerp(minRotation, maxRotation, currentRpm / (MaxRpm * 1.1f)));
         }
         else
         {
@@ -310,7 +306,7 @@ public class CarController : MonoBehaviour
     IEnumerator ChangeGear(int gearChange)
     {
         int newGear = currentGear + gearChange; // Вычисляем новую шестерню
-                                                // Проверяем, что новая шестерня не отрицательная И не выходит за пределы массива
+                                                
         if (newGear >= 0 && newGear < gearRatios.Length)
         {
             yield return new WaitForSeconds(changeGearTime);
