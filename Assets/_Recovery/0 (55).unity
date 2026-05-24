@@ -2413,6 +2413,21 @@ PrefabInstance:
       propertyPath: m_SizeDelta.y
       value: 1200
       objectReference: {fileID: 0}
+<<<<<<< HEAD
+=======
+    - target: {fileID: 9103273575180080470, guid: 7b297d4ed88307c40bb655b2a2c87211, type: 3}
+      propertyPath: m_ContentType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9103273575180080470, guid: 7b297d4ed88307c40bb655b2a2c87211, type: 3}
+      propertyPath: m_KeyboardType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9103273575180080470, guid: 7b297d4ed88307c40bb655b2a2c87211, type: 3}
+      propertyPath: m_CharacterValidation
+      value: 0
+      objectReference: {fileID: 0}
+>>>>>>> 67a9f016f88603fd33f39c386b46b391cfa200d6
     - target: {fileID: 9104844946777819738, guid: 7b297d4ed88307c40bb655b2a2c87211, type: 3}
       propertyPath: m_MatchWidthOrHeight
       value: 0
