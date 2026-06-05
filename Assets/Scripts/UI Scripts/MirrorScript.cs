@@ -8,7 +8,7 @@ public class MirrorScript : MonoBehaviour
     [SerializeField] private GameObject RightMirror;
     [SerializeField] private TurnSignal LeftTS;
     [SerializeField] private TurnSignal RightTS;
-    [SerializeField] private AlarmSystem alarm;
+    [SerializeField] private TurnSignal alarm;
     [SerializeField] private AutomatTransmission automat;
     private bool isPressed;
     void Start()

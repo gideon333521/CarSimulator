@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,9 +8,8 @@ public class TurnSignal : MonoBehaviour
     [SerializeField] private Button turnSignal;
     [SerializeField] private Color enableColor;
     [SerializeField] private Color currentColor;
-    [SerializeField] private Light[] lights;
-    [SerializeField] private AlarmSystem alarm;
-    public bool isPressed = false;
+    [SerializeField] private TurnSignalLight[] lights;
+    public bool isPressed;
     private Coroutine coroutine;
 
     void Start()
@@ -22,17 +20,17 @@ public class TurnSignal : MonoBehaviour
 
     void Update()
     {
-        foreach(Light light in lights)
+        foreach(TurnSignalLight light in lights)
         {
             light.enabled = isPressed;
-            if (isPressed || alarm.isPressed)
+            if (isPressed)
             {
                 if (coroutine == null)
                 {
                     coroutine = StartCoroutine(Blink());
-                }
+                } 
             }
-            else 
+            else
             {
                 if (coroutine != null)
                 {

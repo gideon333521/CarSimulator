@@ -9,7 +9,7 @@ public class AlarmSystem : MonoBehaviour
     [SerializeField] private Color enableColor;
     [SerializeField] private Color currentColor;
     [SerializeField] private Light[] lights;
-    public bool isPressed = false;
+    public bool isPressed;
     private Coroutine coroutine;
     void Start()
     {
