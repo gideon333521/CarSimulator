@@ -168,7 +168,7 @@ InputManager:
   - serializedVersion: 3
     m_Name: Debug Horizontal
     descriptiveName: 
-    descriptiveNegativeName: down
+    descriptiveNegativeName: 
     negativeButton: left
     positiveButton: right
     altNegativeButton: 
@@ -184,7 +184,7 @@ InputManager:
   - serializedVersion: 3
     m_Name: Debug Vertical
     descriptiveName: 
-    descriptiveNegativeName: down
+    descriptiveNegativeName: 
     negativeButton: down
     positiveButton: up
     altNegativeButton: 

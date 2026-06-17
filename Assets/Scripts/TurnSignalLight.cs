@@ -20,7 +20,7 @@ public class TurnSignalLight : MonoBehaviour
         if (coroutine == null)
         {
             coroutine = StartCoroutine(Flicker());
-            TSlight.enabled = true;
+            //TSlight.enabled = true;
         }       
         else
         {
@@ -28,7 +28,7 @@ public class TurnSignalLight : MonoBehaviour
             {
                 StopCoroutine(coroutine);
                 coroutine = null;
-                TSlight.enabled = false;
+                //TSlight.enabled = false;
             }
         }
     }

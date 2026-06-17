@@ -48,12 +48,7 @@ public class AuthManager : MonoBehaviour
         });
     }
 
-    private void Start()
-    {
-        reference = FirebaseDatabase.DefaultInstance.RootReference;
-        StartCoroutine(CheckAndFixDepedemciesAsync());
-    }
-     void AuthStateChanged(object sender, System.EventArgs eventArgs)
+    void AuthStateChanged(object sender, System.EventArgs eventArgs)
      {
         if (auth.CurrentUser != user)
         {

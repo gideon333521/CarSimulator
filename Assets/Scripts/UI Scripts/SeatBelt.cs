@@ -20,10 +20,12 @@ public class SeatBelt : MonoBehaviour
         if (isPressed)
         {
             backgroound.color = enableColor;
+            isPressed = true;
         }
         else 
         {
             backgroound.color = disableColor;
+            isPressed = false;
         }
     }
 

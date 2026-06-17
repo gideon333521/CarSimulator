@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/Scenes/Autodrom.unity
+    guid: 22134321b8a72a44dbc2925f38af7c29
   m_configObjects:
     com.unity.adaptiveperformance.google.android.provider_settings: {fileID: 11400000, guid: 43e0c625f1b115942b00b8617c888766, type: 2}
     com.unity.adaptiveperformance.loader_settings: {fileID: 11400000, guid: 4423dfb213bfc07408820ce46dcbf4e9, type: 2}

@@ -22,7 +22,7 @@ public class CarController : MonoBehaviour
     [SerializeField] private float motorPower;
     private float currentTorque;
     [SerializeField] private float brakeForce;
-    [SerializeField] private float steeringAngle = 30f;
+    private float steeringAngle = 30f;
 
     [SerializeField] private float[] gearRatios;
     [SerializeField] private float MinRpm;
@@ -31,8 +31,10 @@ public class CarController : MonoBehaviour
     [SerializeField] private float decreaseRpm;
     [SerializeField] private AnimationCurve hpToCurve;
     [SerializeField] private float differentialRatio;
+    [SerializeField] private float creepTorque;
     private float currentRpm;
     [SerializeField] private int currentGear = 0;
+    private bool isShifting = false;
 
     [SerializeField] private Transform rpmneedle;
     [SerializeField] private float minRotation;
@@ -66,6 +68,13 @@ public class CarController : MonoBehaviour
     private bool isEngineRunning;
     public HandlingState handlingState;
 
+    public enum TypeDrive
+    {
+        FWD,
+        RWD,
+        AWD
+    }
+    public TypeDrive typeDrive;
 
     private void Start()
     {
@@ -93,7 +102,7 @@ public class CarController : MonoBehaviour
         HandleMotor();
         HandleSteering();
         HandleBrake();
-        UpdateWheelVisuals();
+        UpdateWheelVisuals();CheckAT();
     }
 
     void CheckInput()
@@ -101,7 +110,7 @@ public class CarController : MonoBehaviour
         verticalInput = Input.GetAxis("Vertical");
         if (gasPedal.isPressed)
         {
-            verticalInput += gasPedal.pedalInput;
+            verticalInput = gasPedal.pedalInput;
         }
         else
         {
@@ -112,7 +121,6 @@ public class CarController : MonoBehaviour
         {
             brakePedal.pedalInput = isBraking ? brakePedal.pedalInput : 0f;
             brakeInput = Mathf.Min(brakeInput + brakePedal.pedalInput * Time.deltaTime * 3f, brakeForce);
-            verticalInput = 0;
             isBraking = true;
         }
         else
@@ -167,6 +175,7 @@ public class CarController : MonoBehaviour
 
     private void CheckAT()
     {
+        verticalInput = 0f;
         if (automat.IsPark())
         {
             verticalInput = 0;
@@ -177,23 +186,23 @@ public class CarController : MonoBehaviour
 
         else if (automat.IsReverse())
         {
-            verticalInput -= automat.gearInput;
             verticalInput -= gasPedal.pedalInput;
             gear.text = "R";
+            currentGear = 1;
         }
 
         else if (automat.IsDrive())
         {
-            verticalInput += automat.gearInput;
-            verticalInput += gasPedal.pedalInput;
+            verticalInput = gasPedal.pedalInput;
             gear.text = "D";
+            currentGear = 1;
         }
 
         else if (automat.IsNeutral())
         {
             verticalInput = 0;
             gear.text = "N";
-        }
+        };
     }
     private void HandleSteering()
     {
@@ -203,10 +212,24 @@ public class CarController : MonoBehaviour
 
     private void HandleMotor()
     {
-        foreach (WheelCollider wheel in wheelCollider)
+        currentTorque = CalculateTorqueAT();
+        switch (typeDrive)
         {
-            currentTorque = CalculateTorqueAT();
-            wheel.motorTorque = verticalInput * currentTorque;
+            case TypeDrive.FWD:
+                wheelCollider[0].motorTorque = verticalInput * currentTorque;
+                wheelCollider[1].motorTorque = verticalInput * currentTorque;
+                break;
+
+            case TypeDrive.RWD:
+                wheelCollider[2].motorTorque = verticalInput * currentTorque;
+                wheelCollider[3].motorTorque = verticalInput * currentTorque;
+                break;
+            case TypeDrive.AWD:
+                foreach (WheelCollider wheel in wheelCollider)
+                {
+                    wheel.motorTorque = verticalInput * currentTorque;
+                }
+                break;
         }
     }
 
@@ -214,26 +237,42 @@ public class CarController : MonoBehaviour
     {
         float torque = 0;
         currentGear = Mathf.Clamp(currentGear, 0, gearRatios.Length);
-        if (currentRpm > increaseRpm)
+        if (!isShifting)
         {
-            StartCoroutine(ChangeGear(1));
-        }
-        else if (currentRpm < decreaseRpm && currentGear > 1)
-        {
-            StartCoroutine(ChangeGear(-1));
+            if (currentRpm >= increaseRpm && currentGear < gearRatios.Length)
+            {
+                StartCoroutine(ChangeGear(1));
+            }
+            else if (currentRpm <= decreaseRpm && currentGear > 1)
+            {
+                StartCoroutine(ChangeGear(-1));
+            }
         }
         float wheelRpm = 0;
         if (isEngineRunning)
         {
-            foreach (WheelCollider wheel in wheelCollider)
+            switch (typeDrive)
             {
-                wheelRpm += Mathf.Abs(wheel.rpm/2f) * gearRatios[currentGear] * differentialRatio;
+                case TypeDrive.FWD:
+                    wheelRpm += (Mathf.Abs(wheelCollider[0].rpm) + Mathf.Abs(wheelCollider[1].rpm)) / 2f * gearRatios[currentGear] * differentialRatio;
+                    break;
+
+                case TypeDrive.RWD:
+                    wheelRpm += (Mathf.Abs(wheelCollider[2].rpm) + Mathf.Abs(wheelCollider[3].rpm)) / 2f * gearRatios[currentGear] * differentialRatio;
+                    break;
+
+                case TypeDrive.AWD:
+                    foreach (WheelCollider wheel in wheelCollider)
+                    {
+                        wheelRpm += Mathf.Abs(wheel.rpm / wheelCollider.Length) * gearRatios[currentGear] * differentialRatio;
+                    }
+                    break;
             }
-            currentRpm = Mathf.Lerp(currentRpm, Mathf.Max(MinRpm, wheelRpm), Time.deltaTime * 3f);
-            currentRpm = Mathf.Max(MinRpm, currentRpm);
-            torque = (hpToCurve.Evaluate(currentRpm / MaxRpm) * motorPower / currentRpm) * gearRatios[currentGear] * differentialRatio * 5252f; 
+            wheelRpm = Mathf.Clamp(wheelRpm, MinRpm, MaxRpm);
+            currentRpm = Mathf.Lerp(currentRpm, Mathf.Max(MinRpm - 100, wheelRpm), Time.deltaTime * 3f);
+            torque = (hpToCurve.Evaluate(currentRpm / MaxRpm) * motorPower / currentRpm) * gearRatios[currentGear] * differentialRatio * 5252f;
+            
         }
-        Debug.Log($"Engine RPM: {currentRpm}, Gear: {currentGear}, GearRatio: {gearRatios[currentGear]}, Wheel RPM: {wheelRpm}, Torque: {torque}");
         return torque;
     }
 
@@ -242,7 +281,7 @@ public class CarController : MonoBehaviour
         brakeInput = isBraking ? brakeForce : 0f;
         foreach (WheelCollider wheel in wheelCollider)
         {
-            wheel.brakeTorque = brakeInput;
+            wheel.brakeTorque = brakeInput * brakeForce;
         }          
     }
 
@@ -266,12 +305,10 @@ public class CarController : MonoBehaviour
     {
        speed *= 3.6f;
        speedometr.text = Mathf.RoundToInt(speed).ToString() + "км/ч";
-       Debug.Log($"Speed: {speed}");
     }
 
     private void Rpm()
     {
-        //currentRpm = CalculateRPM();
         if (isEngineRunning)
         {
             tahometr.text = Mathf.RoundToInt(currentRpm).ToString() + "об/мин";
@@ -286,6 +323,7 @@ public class CarController : MonoBehaviour
 
     IEnumerator ChangeGear(int gearChange)
     {
+        isShifting = true;
         int newGear = currentGear + gearChange; // Вычисляем новую шестерню
                                                 
         if (newGear >= 0 && newGear < gearRatios.Length)
@@ -293,5 +331,6 @@ public class CarController : MonoBehaviour
             yield return new WaitForSeconds(changeGearTime);
             currentGear = newGear; // Устанавливаем новую передачу
         }
+        isShifting = false;
     }
 }

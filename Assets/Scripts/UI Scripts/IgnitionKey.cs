@@ -22,10 +22,12 @@ public class IgnitionKey : MonoBehaviour
         if (isPressed)
         {
             image.color = activateColor;
+            isPressed = true;
         }
         else 
         {
             image.color = deactivateColor;
+            isPressed = false;
         }
     }
 
